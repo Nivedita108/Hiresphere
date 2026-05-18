@@ -8,7 +8,6 @@ export default function App() {
   const [recommendation, setRecommendation] = useState("");
   const [loadingAI, setLoadingAI] = useState(false);
   const [editingId, setEditingId] = useState(null);
-
   const [jobSkills, setJobSkills] = useState("");
 
   const [form, setForm] = useState({
@@ -29,7 +28,7 @@ export default function App() {
       const data = await res.json();
       setCandidates(data?.candidates || []);
     } catch (err) {
-      console.log("Fetch error:", err);
+      console.log(err);
     }
   };
 
@@ -40,7 +39,10 @@ export default function App() {
   /* ================= INPUT ================= */
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value
+    });
   };
 
   /* ================= VALIDATION ================= */
@@ -54,6 +56,7 @@ export default function App() {
     if (!form.experience.trim()) newErrors.experience = "Experience required";
 
     setErrors(newErrors);
+
     return Object.keys(newErrors).length === 0;
   };
 
@@ -78,7 +81,7 @@ export default function App() {
     if (!validateForm()) return;
 
     try {
-      const res = await fetch(`${API}/api/candidates`, {
+      await fetch(`${API}/api/candidates`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -87,31 +90,32 @@ export default function App() {
           name: form.name,
           email: form.email,
           skills: form.skills.split(",").map(s => s.trim()).filter(Boolean),
-          experience: Number(form.experience),
+          experience: parseInt(form.experience),
           bio: form.bio
         })
       });
 
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data?.error);
-
+      await fetchCandidates();
       resetForm();
-      fetchCandidates();
 
     } catch (err) {
-      console.log("Add error:", err.message);
+      console.log(err);
     }
   };
 
   /* ================= DELETE ================= */
 
   const deleteCandidate = async (id) => {
-    await fetch(`${API}/api/candidates/${id}`, {
-      method: "DELETE"
-    });
+    try {
+      await fetch(`${API}/api/candidates/${id}`, {
+        method: "DELETE"
+      });
 
-    fetchCandidates();
+      await fetchCandidates();
+
+    } catch (err) {
+      console.log(err);
+    }
   };
 
   /* ================= EDIT ================= */
@@ -121,7 +125,7 @@ export default function App() {
       name: c.name,
       email: c.email,
       skills: c.skills.join(", "),
-      experience: c.experience,
+      experience: c.experience.toString(),
       bio: c.bio
     });
 
@@ -133,22 +137,27 @@ export default function App() {
   const updateCandidate = async () => {
     if (!validateForm()) return;
 
-    await fetch(`${API}/api/candidates/${editingId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        name: form.name,
-        email: form.email,
-        skills: form.skills.split(",").map(s => s.trim()).filter(Boolean),
-        experience: Number(form.experience),
-        bio: form.bio
-      })
-    });
+    try {
+      await fetch(`${API}/api/candidates/${editingId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          skills: form.skills.split(",").map(s => s.trim()).filter(Boolean),
+          experience: parseInt(form.experience),
+          bio: form.bio
+        })
+      });
 
-    resetForm();
-    fetchCandidates();
+      await fetchCandidates();
+      resetForm();
+
+    } catch (err) {
+      console.log(err);
+    }
   };
 
   /* ================= AI ================= */
@@ -178,7 +187,9 @@ export default function App() {
 
       const data = await res.json();
 
-      setRecommendation(data?.recommendation || "No response");
+      setRecommendation(
+        data?.recommendation || data?.error || "No response"
+      );
 
     } catch (err) {
       setRecommendation("AI request failed.");
@@ -196,8 +207,6 @@ export default function App() {
       </aside>
 
       <main className="main">
-
-        {/* Candidate Form */}
 
         <section className="form-section">
           <h1>{editingId ? "Update Candidate" : "Add Candidate"}</h1>
@@ -225,6 +234,7 @@ export default function App() {
 
           <input
             name="experience"
+            type="number"
             value={form.experience}
             onChange={handleChange}
             placeholder="Experience"
@@ -238,7 +248,7 @@ export default function App() {
           />
 
           <button onClick={editingId ? updateCandidate : addCandidate}>
-            {editingId ? "Update" : "Save"}
+            {editingId ? "Update Candidate" : "Save Candidate"}
           </button>
 
           {editingId && (
@@ -247,8 +257,6 @@ export default function App() {
             </button>
           )}
         </section>
-
-        {/* Candidate List */}
 
         <section className="candidate-section">
           <h1>Candidates</h1>
@@ -265,8 +273,6 @@ export default function App() {
             </div>
           ))}
         </section>
-
-        {/* AI Section */}
 
         <section className="ai-section">
           <h1>AI Candidate Shortlisting</h1>
