@@ -28,7 +28,7 @@ export default function App() {
       const data = await res.json();
       setCandidates(data?.candidates || []);
     } catch (err) {
-      console.log(err);
+      console.log("Fetch Error:", err);
     }
   };
 
@@ -56,7 +56,6 @@ export default function App() {
     if (!form.experience.trim()) newErrors.experience = "Experience required";
 
     setErrors(newErrors);
-
     return Object.keys(newErrors).length === 0;
   };
 
@@ -89,17 +88,16 @@ export default function App() {
         body: JSON.stringify({
           name: form.name,
           email: form.email,
-          skills: form.skills.split(",").map(s => s.trim()).filter(Boolean),
-          experience: parseInt(form.experience),
+          skills: form.skills.split(",").map((s) => s.trim()),
+          experience: Number(form.experience),
           bio: form.bio
         })
       });
 
       await fetchCandidates();
       resetForm();
-
     } catch (err) {
-      console.log(err);
+      console.log("Add Error:", err);
     }
   };
 
@@ -112,24 +110,23 @@ export default function App() {
       });
 
       await fetchCandidates();
-
     } catch (err) {
-      console.log(err);
+      console.log("Delete Error:", err);
     }
   };
 
   /* ================= EDIT ================= */
 
-  const editCandidate = (c) => {
+  const editCandidate = (candidate) => {
     setForm({
-      name: c.name,
-      email: c.email,
-      skills: c.skills.join(", "),
-      experience: c.experience.toString(),
-      bio: c.bio
+      name: candidate.name,
+      email: candidate.email,
+      skills: candidate.skills.join(", "),
+      experience: String(candidate.experience),
+      bio: candidate.bio
     });
 
-    setEditingId(c._id);
+    setEditingId(candidate._id);
   };
 
   /* ================= UPDATE ================= */
@@ -146,17 +143,16 @@ export default function App() {
         body: JSON.stringify({
           name: form.name,
           email: form.email,
-          skills: form.skills.split(",").map(s => s.trim()).filter(Boolean),
-          experience: parseInt(form.experience),
+          skills: form.skills.split(",").map((s) => s.trim()),
+          experience: Number(form.experience),
           bio: form.bio
         })
       });
 
       await fetchCandidates();
       resetForm();
-
     } catch (err) {
-      console.log(err);
+      console.log("Update Error:", err);
     }
   };
 
@@ -180,7 +176,7 @@ export default function App() {
         body: JSON.stringify({
           requiredSkills: jobSkills
             .split(",")
-            .map(skill => skill.trim())
+            .map((skill) => skill.trim())
             .filter(Boolean)
         })
       });
@@ -188,9 +184,12 @@ export default function App() {
       const data = await res.json();
 
       setRecommendation(
-        data?.recommendation || data?.error || "No response"
+        typeof data.recommendation === "string"
+          ? data.recommendation
+          : data.error
+          ? JSON.stringify(data.error, null, 2)
+          : "No response from AI"
       );
-
     } catch (err) {
       setRecommendation("AI request failed.");
     } finally {
@@ -200,13 +199,13 @@ export default function App() {
 
   return (
     <div className="dashboard">
-
       <aside className="sidebar">
         <h2>HireSphere AI</h2>
         <p>Recruitment Intelligence System</p>
       </aside>
 
       <main className="main">
+        {/* FORM */}
 
         <section className="form-section">
           <h1>{editingId ? "Update Candidate" : "Add Candidate"}</h1>
@@ -229,12 +228,12 @@ export default function App() {
             name="skills"
             value={form.skills}
             onChange={handleChange}
-            placeholder="React, Node"
+            placeholder="React, Node, MongoDB"
           />
 
           <input
-            name="experience"
             type="number"
+            name="experience"
             value={form.experience}
             onChange={handleChange}
             placeholder="Experience"
@@ -251,17 +250,15 @@ export default function App() {
             {editingId ? "Update Candidate" : "Save Candidate"}
           </button>
 
-          {editingId && (
-            <button onClick={resetForm}>
-              Cancel
-            </button>
-          )}
+          {editingId && <button onClick={resetForm}>Cancel</button>}
         </section>
+
+        {/* CANDIDATES */}
 
         <section className="candidate-section">
           <h1>Candidates</h1>
 
-          {candidates.map(c => (
+          {candidates.map((c) => (
             <div className="card" key={c._id}>
               <h3>{c.name}</h3>
               <p>{c.email}</p>
@@ -274,11 +271,13 @@ export default function App() {
           ))}
         </section>
 
+        {/* AI */}
+
         <section className="ai-section">
           <h1>AI Candidate Shortlisting</h1>
 
           <input
-            placeholder="Enter required skills (React, Node.js, MongoDB)"
+            placeholder="Required skills (React, Node.js, MongoDB)"
             value={jobSkills}
             onChange={(e) => setJobSkills(e.target.value)}
           />
@@ -291,20 +290,18 @@ export default function App() {
             <h2>Candidate Intelligence Report</h2>
 
             <div className="ai-box">
-              {recommendation.split("\n").map((line, i) => (
+              {(recommendation || "").split("\n").map((line, i) => (
                 <p key={i}>{line}</p>
               ))}
             </div>
           </div>
         </section>
-
       </main>
 
       <aside className="right-panel">
         <h2>Stats</h2>
         <p>Total Candidates: {candidates.length}</p>
       </aside>
-
     </div>
   );
 }
