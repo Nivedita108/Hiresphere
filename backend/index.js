@@ -32,7 +32,7 @@ const candidateSchema = new mongoose.Schema({
 
 const Candidate = mongoose.model("Candidate", candidateSchema);
 
-/* ================= ADD CANDIDATE ================= */
+/* ================= ADD ================= */
 
 app.post("/api/candidates", async (req, res) => {
   try {
@@ -72,33 +72,7 @@ app.post("/api/candidates", async (req, res) => {
 
 app.get("/api/candidates", async (req, res) => {
   const candidates = await Candidate.find();
-  res.json({
-    success: true,
-    candidates
-  });
-});
-
-/* ================= SEARCH ================= */
-
-app.get("/api/candidates/search", async (req, res) => {
-  try {
-    const skill = req.query.skill;
-
-    const candidates = await Candidate.find({
-      skills: { $regex: skill, $options: "i" }
-    });
-
-    res.json({
-      success: true,
-      candidates
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
+  res.json({ success: true, candidates });
 });
 
 /* ================= UPDATE ================= */
@@ -138,37 +112,6 @@ app.delete("/api/candidates/:id", async (req, res) => {
   });
 });
 
-/* ================= MATCH ================= */
-
-function matchCandidates(candidates, job) {
-  return candidates.map(candidate => {
-
-    const matchedSkills = candidate.skills.filter(skill =>
-      job.requiredSkills.includes(skill)
-    );
-
-    const score =
-      (matchedSkills.length / job.requiredSkills.length) * 100 +
-      (candidate.experience * 5);
-
-    return {
-      ...candidate._doc,
-      matchScore: score
-    };
-
-  }).sort((a, b) => b.matchScore - a.matchScore);
-}
-
-app.post("/api/match", async (req, res) => {
-  const candidates = await Candidate.find();
-  const results = matchCandidates(candidates, req.body);
-
-  res.json({
-    success: true,
-    shortlistedCandidates: results
-  });
-});
-
 /* ================= AI SHORTLIST ================= */
 
 app.post("/api/ai/shortlist", async (req, res) => {
@@ -201,8 +144,7 @@ CANDIDATE SHORTLISTING REPORT
 
 NO MATCHING CANDIDATES FOUND
 
-No candidate profiles match:
-
+Required Skills:
 ${requiredSkills.join(", ")}
 
 Recommendation:
@@ -214,24 +156,15 @@ Add more candidate profiles or modify search criteria.
     const prompt = `
 You are a senior technical recruitment analyst.
 
-Evaluate ONLY these matched candidates for:
-
+Analyze these candidates for:
 ${requiredSkills.join(", ")}
 
-Return a professional report with:
-
-==================================================
-CANDIDATE SHORTLISTING REPORT
-==================================================
-
-TOP RANKED CANDIDATES
-(Name, Match Score, Recommendation, Reason)
-
-SKILL GAP ANALYSIS
-
-INTERVIEW QUESTION SUGGESTIONS
-
-FINAL HIRING RECOMMENDATION
+Provide:
+1. Top Ranked Candidates
+2. Match Scores
+3. Skill Gap Analysis
+4. Interview Questions
+5. Final Hiring Recommendation
 
 Candidates:
 ${JSON.stringify(matchedCandidates)}
@@ -251,7 +184,9 @@ ${JSON.stringify(matchedCandidates)}
       {
         headers: {
           Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://hiresphere-7pcq.onrender.com",
+          "X-Title": "HireSphere AI"
         }
       }
     );
@@ -262,26 +197,13 @@ ${JSON.stringify(matchedCandidates)}
     });
 
   } catch (error) {
+    console.log("AI ERROR:", error.response?.data || error.message);
+
     res.status(500).json({
       success: false,
-      error: error.message
+      error: error.response?.data || error.message
     });
   }
-});
-
-/* ================= SHORTLIST ================= */
-
-app.put("/api/candidates/:id/shortlist", async (req, res) => {
-  const updated = await Candidate.findByIdAndUpdate(
-    req.params.id,
-    { shortlisted: true },
-    { new: true }
-  );
-
-  res.json({
-    success: true,
-    candidate: updated
-  });
 });
 
 /* ================= SERVER ================= */
